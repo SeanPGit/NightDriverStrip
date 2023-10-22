@@ -171,6 +171,11 @@
 #undef min                                      // They define a min() on us
 #endif
 
+#if M5STACKCORE
+#include "M5Stack.h"
+#undef min                                      // They define a min() on us
+#endif
+
 #if M5STACKCORE2
 #include "M5Core2.h"
 #undef min                                      // They define a min() on us
@@ -248,19 +253,20 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
     #define PROJECT_NAME            "Demo"
     #endif
 
-    #define MATRIX_WIDTH            144
+    #define MATRIX_WIDTH            120     // SRP 120 original: 144
     #define MATRIX_HEIGHT           1
     #define NUM_LEDS                (MATRIX_WIDTH*MATRIX_HEIGHT)
     #define NUM_CHANNELS            1
     #define ENABLE_AUDIO            0
 
-    #define POWER_LIMIT_MW       12 * 10 * 1000   // 10 amp supply at 5 volts assumed
+    //#define POWER_LIMIT_MW        12 * 10 * 1000   // 10 amp supply at 5 volts assumed (20230927 SRP: Surely this is 12v@10A?)
+    #define POWER_LIMIT_MW          5 * 1 * 500   // SRP: 5v, 500mV (USB)? Certainly doesn't burn the retinas! ;-)
 
     // Once you have a working project, selectively enable various additional features by setting
-    // them to 1 in the list below.  This DEMO config assumes no audio (mic), or screen, etc.
+    // them to 1 in the list below.  This DEMO config assumes no audio (mic), wifi or screen etc.
 
     #ifndef ENABLE_WIFI
-        #define ENABLE_WIFI             0   // Connect to WiFi
+        #define ENABLE_WIFI         1   // Connect to WiFi
     #endif
 
     #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
@@ -270,6 +276,8 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 
     #if M5STICKC || M5STICKCPLUS || M5STACKCORE2
         #define LED_PIN0 32
+    #elif M5STACKCORE
+        #define LED_PIN0            21
     #elif LILYGOTDISPLAYS3
         #define LED_PIN0 21
     #else
@@ -1273,7 +1281,11 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 
         #define USE_M5DISPLAY 1                               // enable the M5's LCD screen
 
-    #elif M5STACKCORE2                                        // screen definitions for m5stick-c (or m5stick-c plus)
+    #elif M5STACKCORE                                         // screen definitions for m5stack-core
+
+        #define USE_M5DISPLAY 1                               // enable the M5's LCD screen
+
+    #elif M5STACKCORE2                                        // screen definitions for m5stack-core2
 
         #define USE_M5DISPLAY 1                               // enable the M5's LCD screen
 
@@ -1367,6 +1379,10 @@ extern DRAM_ATTR const int g_aRingSizeTable[];
 #define M5STICKCPLUS 0
 #endif
 
+#ifndef M5STACKCORE
+#define M5STACKCORE 0
+#endif
+
 #ifndef M5STACKCORE2
 #define M5STACKCORE2 0
 #endif
@@ -1382,6 +1398,9 @@ extern DRAM_ATTR const int g_aRingSizeTable[];
 // Microphone
 //
 // The M5 mic is on Pin34, but when I wire up my own microphone module I usually put it on pin 36.
+#if M5STACKCORE     // M5 Stack Core basic https://docs.m5stack.com/en/core/basic does not have a microphone, so turn off any mic-based configs here.
+    #define ENABLE_AUDIO            0    
+#endif
 
 #if ENABLE_AUDIO
     #ifndef INPUT_PIN

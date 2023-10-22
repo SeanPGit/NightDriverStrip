@@ -401,7 +401,7 @@ void setup()
         debugW("Creating LCD Screen");
         g_ptrSystem->SetupDisplay<LCDScreen>(TFT_HEIGHT, TFT_WIDTH);
 
-    #elif M5STICKC || M5STICKCPLUS || M5STACKCORE2
+    #elif M5STICKC || M5STICKCPLUS || M5STACKCORE || M5STACKCORE2
 
         #if USE_M5DISPLAY
             M5.begin();

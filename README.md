@@ -133,7 +133,7 @@ I recommend you do the following:
 - Upload the resultant binary to the ESP32
 - Connect the wire associated with LED_PIN0 in your include/globals.h and GND and 5V of a WS2812B strip to the ESP32. For
   example, this will be Pin 5 for ATOMLIGHT, but even for DEMO, may be Pin 32 for M5STICKC, M5STICKCPLUS, or M5STACKCORE2
-  or 21 for the LILYGOTDISPLAYS3.
+  or 21 for the LILYGOTDISPLAYS3 or M5STACKCORE.
 - Provide an adequate power source for the LEDs and ESP32
 - Enjoy the pretty lights
 - Start enabling features in the `globals.h` or platformio.ini file like WiFi and WebServer. See [Feature Defines](#feature-defines) below.

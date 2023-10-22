@@ -17,6 +17,8 @@ platformio run -e panlee
 platformio run -e spectrum
 platformio run -e umbrella
 platformio run -e xmastrees
+platformio run -e m5stackdemo
+platformio run -e m5stackc2demo
 
 
 

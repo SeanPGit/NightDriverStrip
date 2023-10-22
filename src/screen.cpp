@@ -118,7 +118,11 @@ void BasicInfoSummary(bool bRedraw)
 
     if (WiFi.isConnected() == false)
     {
-        display.println("No Wifi");
+        #if ENABLE_WIFI
+            display.println(str_sprintf("No Wifi \"%s\"", WiFi.SSID()));
+        #else
+            display.println("Wifi not enabled");
+        #endif
     }
     else
     {
@@ -170,7 +174,7 @@ void BasicInfoSummary(bool bRedraw)
                                     g_Values.Watts));
     }
 
-    // PSRAM Info Line 7 - only if display tall enough
+    // CPU Info Line 7 - only if display tall enough
 
     if (display.height() >= lineHeight * 7)
     {
@@ -295,7 +299,12 @@ void CurrentEffectSummary(bool bRedraw)
             display.print(g_ptrSystem->EffectManager().GetCurrentEffectName());
             yh += display.fontHeight();
 
-            String sIP = WiFi.isConnected() ? WiFi.localIP().toString().c_str() : "No Wifi";
+            #if ENABLE_WIFI
+                String sIP = WiFi.isConnected() ? WiFi.localIP().toString().c_str() : "No Wifi \"" + WiFi.SSID() + "\"";
+            #else
+                String sIP = "Wifi no enabled";
+            #endif
+
             display.setTextColor(YELLOW16, backColor);
             w = display.textWidth(sIP);
             display.setCursor(display.width() / 2 - w / 2, yh);
