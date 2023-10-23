@@ -260,7 +260,7 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
     #define ENABLE_AUDIO            0
 
     //#define POWER_LIMIT_MW        12 * 10 * 1000   // 10 amp supply at 5 volts assumed (20230927 SRP: Surely this is 12v@10A?)
-    #define POWER_LIMIT_MW          5 * 1 * 500   // SRP: 5v, 500mV (USB)? Certainly doesn't burn the retinas! ;-)
+    #define POWER_LIMIT_MW          5 * 1 * 500   // SRP: 5v, 500mA (USB)? Certainly doesn't burn the retinas! ;-)
 
     // Once you have a working project, selectively enable various additional features by setting
     // them to 1 in the list below.  This DEMO config assumes no audio (mic), wifi or screen etc.
