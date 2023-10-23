@@ -38,7 +38,8 @@
 const std::map<String, CWebServer::ValueValidator> CWebServer::settingValidators
 {
     { DeviceConfig::OpenWeatherApiKeyTag, [](const String& value) { return g_ptrSystem->DeviceConfig().ValidateOpenWeatherAPIKey(value); } },
-    { DeviceConfig::PowerLimitTag, [](const String& value) { return g_ptrSystem->DeviceConfig().ValidatePowerLimit(value); } }
+    { DeviceConfig::PowerLimitTag, [](const String& value) { return g_ptrSystem->DeviceConfig().ValidatePowerLimit(value); } },
+    { DeviceConfig::BrightnessTag, [](const String& value) { return g_ptrSystem->DeviceConfig().ValidateBrightness(value); } }
 };
 
 std::vector<SettingSpec, psram_allocator<SettingSpec>> CWebServer::mySettingSpecs = {};
@@ -86,6 +87,91 @@ void CWebServer::AddCORSHeaderAndSendResponse<AsyncJsonResponse>(AsyncWebServerR
 
 // Member function implementations
 
+// begin - register page load handlers and start serving pages
+void CWebServer::begin()
+{
+    extern const uint8_t html_start[] asm("_binary_site_dist_index_html_gz_start");
+    extern const uint8_t html_end[] asm("_binary_site_dist_index_html_gz_end");
+    extern const uint8_t js_start[] asm("_binary_site_dist_index_js_gz_start");
+    extern const uint8_t js_end[] asm("_binary_site_dist_index_js_gz_end");
+    extern const uint8_t ico_start[] asm("_binary_site_dist_favicon_ico_gz_start");
+    extern const uint8_t ico_end[] asm("_binary_site_dist_favicon_ico_gz_end");
+    extern const uint8_t timezones_start[] asm("_binary_config_timezones_json_start");
+    extern const uint8_t timezones_end[] asm("_binary_config_timezones_json_end");
+
+    _staticStats.HeapSize = ESP.getHeapSize();
+    _staticStats.DmaHeapSize = heap_caps_get_total_size(MALLOC_CAP_DMA);
+    _staticStats.PsramSize = ESP.getPsramSize();
+    _staticStats.ChipModel = ESP.getChipModel();
+    _staticStats.ChipCores = ESP.getChipCores();
+    _staticStats.CpuFreqMHz = ESP.getCpuFreqMHz();
+    _staticStats.SketchSize = ESP.getSketchSize();
+    _staticStats.FreeSketchSpace = ESP.getFreeSketchSpace();
+    _staticStats.FlashChipSize = ESP.getFlashChipSize();
+
+    debugI("Connecting Web Endpoints");
+
+    _server.on("/effects",               HTTP_GET,  [](AsyncWebServerRequest * pRequest)        { GetEffectListText(pRequest); });
+    _server.on("/getEffectList",         HTTP_GET,  [](AsyncWebServerRequest * pRequest)        { GetEffectListText(pRequest); });
+    _server.on("/statistics",            HTTP_GET,  [this](AsyncWebServerRequest * pRequest)    { this->GetStatistics(pRequest); });
+    _server.on("/getStatistics",         HTTP_GET,  [this](AsyncWebServerRequest * pRequest)    { this->GetStatistics(pRequest); });
+    _server.on("/nextEffect",            HTTP_POST, [](AsyncWebServerRequest * pRequest)        { NextEffect(pRequest); });
+    _server.on("/previousEffect",        HTTP_POST, [](AsyncWebServerRequest * pRequest)        { PreviousEffect(pRequest); });
+
+    _server.on("/currentEffect",         HTTP_POST, [](AsyncWebServerRequest * pRequest)        { SetCurrentEffectIndex(pRequest); });
+    _server.on("/setCurrentEffectIndex", HTTP_POST, [](AsyncWebServerRequest * pRequest)        { SetCurrentEffectIndex(pRequest); });
+    _server.on("/enableEffect",          HTTP_POST, [](AsyncWebServerRequest * pRequest)        { EnableEffect(pRequest); });
+    _server.on("/disableEffect",         HTTP_POST, [](AsyncWebServerRequest * pRequest)        { DisableEffect(pRequest); });
+    _server.on("/moveEffect",            HTTP_POST, [](AsyncWebServerRequest * pRequest)        { MoveEffect(pRequest); });
+    _server.on("/copyEffect",            HTTP_POST, [](AsyncWebServerRequest * pRequest)        { CopyEffect(pRequest); });
+    _server.on("/deleteEffect",          HTTP_POST, [](AsyncWebServerRequest * pRequest)        { DeleteEffect(pRequest); });
+
+    _server.on("/settings/effect/specs", HTTP_GET,  [](AsyncWebServerRequest * pRequest)        { GetEffectSettingSpecs(pRequest); });
+    _server.on("/settings/effect",       HTTP_GET,  [](AsyncWebServerRequest * pRequest)        { GetEffectSettings(pRequest); });
+    _server.on("/settings/effect",       HTTP_POST, [](AsyncWebServerRequest * pRequest)        { SetEffectSettings(pRequest); });
+    _server.on("/settings/validated",    HTTP_POST, [](AsyncWebServerRequest * pRequest)        { ValidateAndSetSetting(pRequest); });
+    _server.on("/settings/specs",        HTTP_GET,  [](AsyncWebServerRequest * pRequest)        { GetSettingSpecs(pRequest); });
+    _server.on("/settings",              HTTP_GET,  [](AsyncWebServerRequest * pRequest)        { GetSettings(pRequest); });
+    _server.on("/settings",              HTTP_POST, [](AsyncWebServerRequest * pRequest)        { SetSettings(pRequest); });
+    _server.on("/effectsConfig",         HTTP_GET,  [](AsyncWebServerRequest * pRequest)        { pRequest->send(SPIFFS, EFFECTS_CONFIG_FILE, "text/json"); });
+
+    _server.on("/reset",                 HTTP_POST, [](AsyncWebServerRequest * pRequest)        { Reset(pRequest); });
+
+    #if ENABLE_IMPROV_LOGGING
+        _server.on(IMPROV_LOG_FILE,      HTTP_GET,  [](AsyncWebServerRequest * pRequest)        { pRequest->send(SPIFFS, IMPROV_LOG_FILE, "text/plain"); });
+    #endif
+
+    EmbeddedWebFile html_file(html_start, html_end, "text/html", "gzip");
+    EmbeddedWebFile js_file(js_start, js_end, "application/javascript", "gzip");
+    EmbeddedWebFile ico_file(ico_start, ico_end, "image/vnd.microsoft.icon", "gzip");
+    EmbeddedWebFile timezones_file(timezones_start, timezones_end - 1, "text/json", ""); // end - 1 because of zero-termination
+
+    debugI("Embedded html file size: %d", html_file.length);
+    debugI("Embedded jsx file size: %d", js_file.length);
+    debugI("Embedded ico file size: %d", ico_file.length);
+    debugI("Embedded timezones file size: %d", timezones_file.length);
+
+    ServeEmbeddedFile("/", html_file);
+    ServeEmbeddedFile("/index.html", html_file);
+    ServeEmbeddedFile("/index.js", js_file);
+    ServeEmbeddedFile("/favicon.ico", ico_file);
+    ServeEmbeddedFile("/timezones.json", timezones_file);
+
+    _server.onNotFound([](AsyncWebServerRequest *request)
+    {
+        if (request->method() == HTTP_OPTIONS) {
+            request->send(HTTP_CODE_OK);                                     // Apparently needed for CORS: https://github.com/me-no-dev/ESPAsyncWebServer
+        } else {
+                debugW("Failed GET for %s\n", request->url().c_str() );
+            request->send(HTTP_CODE_NOT_FOUND);
+        }
+    });
+
+    _server.begin();
+
+    debugI("HTTP server started");
+}
+
 bool CWebServer::IsPostParamTrue(AsyncWebServerRequest * pRequest, const String & paramName)
 {
     bool returnValue = false;
@@ -118,15 +204,13 @@ void CWebServer::GetEffectListText(AsyncWebServerRequest * pRequest)
 
         j["currentEffect"]         = effectManager.GetCurrentEffectIndex();
         j["millisecondsRemaining"] = effectManager.GetTimeRemainingForCurrentEffect();
-        j["effectInterval"]        = effectManager.GetInterval();
+        j["eternalInterval"]       = effectManager.IsIntervalEternal();
+        j["effectInterval"]        = effectManager.GetEffectiveInterval();
 
-        auto effectsList = effectManager.EffectsList();
-
-        for (int i = 0; i < effectManager.EffectCount(); i++)
+        for (auto effect : effectManager.EffectsList())
         {
             StaticJsonDocument<256> effectDoc;
 
-            auto effect = effectsList[i];
             effectDoc["name"]    = effect->FriendlyName();
             effectDoc["enabled"] = effect->IsEnabled();
             effectDoc["core"]    = effect->IsCoreEffect();
@@ -314,6 +398,23 @@ void CWebServer::SendSettingSpecsResponse(AsyncWebServerRequest * pRequest, cons
                 jsonDoc["minimumValue"] = spec.MinimumValue.value();
             if (spec.MaximumValue.has_value())
                 jsonDoc["maximumValue"] = spec.MaximumValue.value();
+            switch (spec.Access)
+            {
+                case SettingSpec::SettingAccess::ReadOnly:
+                    jsonDoc["readOnly"] = true;
+                    break;
+
+                case SettingSpec::SettingAccess::WriteOnly:
+                    jsonDoc["writeOnly"] = true;
+                    break;
+
+                default:
+                    // Default is read/write, so we don't need to specify that
+                    break;
+            }
+
+            if (jsonDoc.overflowed())
+                debugE("JSON buffer overflow while serializing SettingSpec - object incomplete!");
 
             if (!specObject.set(jsonDoc.as<JsonObjectConst>()))
             {
@@ -344,7 +445,6 @@ const std::vector<std::reference_wrapper<SettingSpec>> & CWebServer::LoadDeviceS
 
         auto deviceConfigSpecs = g_ptrSystem->DeviceConfig().GetSettingSpecs();
         deviceSettingSpecs.insert(deviceSettingSpecs.end(), deviceConfigSpecs.begin(), deviceConfigSpecs.end());
-
     }
 
     return deviceSettingSpecs;
@@ -389,6 +489,7 @@ void CWebServer::SetSettingsIfPresent(AsyncWebServerRequest * pRequest)
     PushPostParamIfPresent<String>(pRequest, DeviceConfig::NTPServerTag, SET_VALUE(deviceConfig.SetNTPServer(value)));
     PushPostParamIfPresent<bool>(pRequest, DeviceConfig::RememberCurrentEffectTag, SET_VALUE(deviceConfig.SetRememberCurrentEffect(value)));
     PushPostParamIfPresent<int>(pRequest, DeviceConfig::PowerLimitTag, SET_VALUE(deviceConfig.SetPowerLimit(value)));
+    PushPostParamIfPresent<int>(pRequest, DeviceConfig::BrightnessTag, SET_VALUE(deviceConfig.SetBrightness(value)));
 }
 
 // Set settings and return resulting config
